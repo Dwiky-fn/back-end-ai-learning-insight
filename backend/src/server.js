@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const Hapi = require('@hapi/hapi');
+const ClientError = require('./exceptions/ClientError');
 
 // users
 const users = require('./api/users');
@@ -28,20 +29,48 @@ const init = async () => {
 
   await server.register([
     {
-      plugins: users,
+      plugin: users,
       options: {
         service: usersService,
         validator: UsersValidator,
       },
     },
     {
-      plugins: activities,
+      plugin: activities,
       options: {
         service: activitiesService,
         validator: ActivitiesValidator,
       },
     },
   ]);
+
+  server.ext('onPreResponse', (request, h) => {
+    const { response } = request;
+
+    // ERROR dari Client (InvariantError, AuthenticationError, AuthorizationError)
+    if (response instanceof ClientError) {
+      const newResponse = h.response({
+        status: 'fail',
+        message: response.message,
+      });
+      newResponse.code(response.statusCode);
+      return newResponse;
+    }
+
+    // ERROR Server (500)
+    if (response instanceof Error) {
+      console.error('[SERVER ERROR]', response);
+
+      const newResponse = h.response({
+        status: 'error',
+        message: 'Maaf, terjadi kegagalan pada server.',
+      });
+      newResponse.code(500);
+      return newResponse;
+    }
+
+    return h.continue;
+  });
 
   await server.start();
   console.log(`Server berjalan pada ${server.info.uri}`);

@@ -1,20 +1,41 @@
 const pool = require('./');
-const InvarianError = require('../../exceptions/InvariantError');
+const InvariantError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
 const { nanoid } = require('nanoid');
 
 class UsersService {
+  // async addUser({ name, email }) {
+  //   const id = `user-${nanoid(16)}`;
+  //   const query = {
+  //     text: 'INSERt INTO users VALUES ($1, $2, $3) RETURNING id',
+  //     values: [id, name, email],
+  //   };
+  //   const result = await pool.query(query);
+
+  //   if (!result.rows[0].id) throw new InvariantError('Gagal menambahkan user');
+
+  //   return result.rows[0].id;
+  // }
+
   async addUser({ name, email }) {
-    const id = `user-${nanoid(16)}`;
-    const query = {
-      text: 'INSER INTO users VALUES ($1, $2, $3) RETURNING id',
-      values: [id, name, email],
-    };
-    const result = await pool.query(query);
+    try {
+      const id = `user-${nanoid(16)}`;
 
-    if (!result.rows[0].id) throw new InvarianError('Gagal menambahkan user');
+      const query = {
+        text: 'INSERT INTO users (id, name, email) VALUES ($1, $2, $3) RETURNING id',
+        values: [id, name, email],
+      };
 
-    return result.rows[0].id;
+      const result = await pool.query(query);
+      return result.rows[0].id;
+    } catch (err) {
+      if (err.code === '23505') {
+        throw new InvariantError('Email sudah digunakan');
+      }
+
+      console.error('[ADD USER ERROR]', err);
+      throw err;
+    }
   }
 
   async getUserById(id) {
